@@ -24,6 +24,8 @@ try {
 
     $_ENV['LARAVEL_STORAGE_PATH'] = $storagePath;
     $_SERVER['LARAVEL_STORAGE_PATH'] = $storagePath;
+    $_ENV['LOG_CHANNEL'] = 'stderr';
+    $_SERVER['LOG_CHANNEL'] = 'stderr';
 
     if (file_exists($maintenance = $storagePath.'/framework/maintenance.php')) {
         require $maintenance;
