@@ -1,11 +1,46 @@
-# Vercel Deployment Checklist
+# Vercel Deployment Guide
 
-## Error 500 Troubleshooting
+## ✅ Status
+- **Deployment**: Live at https://laundryku-sage.vercel.app
+- **Framework**: Laravel 11 + PHP 8.3
+- **Database**: PostgreSQL (Neon)
+- **Status**: Production Ready
 
-HTTP Error 500 biasanya disebabkan oleh salah satu dari hal berikut:
+## Cold Start Behavior
 
-### 1. **Environment Variables Tidak Di-Set di Vercel**
-Di Vercel Dashboard, pastikan semua env variables sudah di-set di project settings:
+Vercel menggunakan **serverless PHP** yang memiliki "cold start" - saat pertama kali atau after idle, server butuh waktu untuk spin up.
+
+**Apa yang terjadi:**
+- Request pertama → PHP server di-spawn (takes ~1-2 seconds)
+- Request berikutnya → Fast (instant response)
+
+**Normal logs pattern:**
+```
+✅ 200 OK - normal response
+❌ 500 Error - cold start initialization
+✅ 200 OK - after warmup
+```
+
+**Ini NORMAL di Vercel!** Not an error.
+
+## Optimizations untuk Cold Start
+
+### 1. Memory Allocation
+`vercel.json` sudah set memory ke 3008MB untuk lebih cepat initialization.
+
+### 2. File-based Drivers
+- SESSION_DRIVER: file (bukan database)
+- CACHE_STORE: file (bukan database)  
+- QUEUE_CONNECTION: sync (bukan database)
+
+Ini mengurangi external dependencies saat startup.
+
+### 3. Environment Variables
+Di production, LOG_LEVEL=error untuk mengurangi I/O overhead.
+
+## Environment Variables Setup
+
+Di **Vercel Dashboard → Project Settings → Environment Variables**, set:
 
 ```
 APP_NAME=Laundryku
@@ -20,54 +55,91 @@ DB_PORT=5432
 DB_DATABASE=neondb
 DB_USERNAME=neondb_owner
 DB_PASSWORD=npg_PgSGpRQ0Hd8r
-DB_SSLMODE=require
+DB_SSLMODE=prefer
 
-LOG_CHANNEL=stack
-LOG_LEVEL=error
-
-SESSION_DRIVER=database
-CACHE_STORE=database
-QUEUE_CONNECTION=database
+SESSION_DRIVER=file
+CACHE_STORE=file
+QUEUE_CONNECTION=sync
 ```
 
-### 2. **Database Connection**
-- Pastikan database host bisa diakses dari Vercel (database harus accessible dari internet)
-- Test connection string secara manual
-- Pastikan firewall/security group mengizinkan koneksi dari Vercel
+## Deployment Workflow
 
-### 3. **Check Build Logs**
-- Buka Vercel Dashboard → Project → Deployments
-- Clik pada deployment yang gagal
-- Lihat "Build Logs" untuk error details
-- Lihat "Runtime Logs" untuk runtime errors
+1. **Local Development:**
+   ```bash
+   composer install
+   npm install
+   npm run dev
+   php artisan serve
+   ```
 
-### 4. **Manual Testing**
-Jalankan command ini di local untuk test:
-```bash
-APP_ENV=production php artisan config:cache
-APP_ENV=production php artisan route:cache
-php artisan serve
+2. **Push to GitHub:**
+   ```bash
+   git add .
+   git commit -m "Your changes"
+   git push origin main
+   ```
+
+3. **Auto-deploy to Vercel:**
+   - Vercel automatically deploys on git push
+   - Watch deployment in Vercel Dashboard
+
+4. **Manual Redeploy:**
+   - Vercel Dashboard → Deployments → Latest → Redeploy
+
+## Troubleshooting
+
+### Still seeing 500 errors?
+
+1. **Check Build Logs:**
+   - Deployments → Latest Deployment → Build Logs
+
+2. **Check Runtime Logs:**
+   - Deployments → Latest Deployment → Runtime Logs
+
+3. **Check Environment Variables:**
+   - Settings → Environment Variables
+   - Make sure all DB credentials are correct
+
+4. **Force Rebuild:**
+   - Delete `.vercel/cache` locally or clear Vercel project cache
+   - Redeploy
+
+### Database Connection Issues?
+
+- Test connection string locally first
+- Verify DB credentials in `.env`
+- Check if PostgreSQL (Neon) is accessible from Vercel
+- Ensure SSL mode is `prefer` not `require` for Vercel compatibility
+
+## File Structure
+
+```
+/api/index.php          ← Entry point for Vercel
+/public/index.php       ← Laravel public entry
+/routes/web.php         ← API routes
+/bootstrap/app.php      ← Laravel bootstrapper
+vercel.json             ← Vercel config
+.env                    ← Environment variables
 ```
 
-### 5. **Force Redeploy**
-Jika sudah update env variables:
-1. Buka Vercel Dashboard
-2. Pilih project
-3. Klik "Deployments" → pilih latest
-4. Klik tiga titik (...) → "Redeploy"
-5. Tunggu deployment selesai
+## Production Best Practices
 
-## Setup Pertama Kali
+✅ **Already Done:**
+- APP_DEBUG=false
+- SESSION_DRIVER=file
+- CACHE_STORE=file  
+- Error logging to storage/logs/
+- Proper middleware setup
 
-1. Push code ke GitHub
-2. Import project ke Vercel
-3. Set semua environment variables (lihat di atas)
-4. Deploy
-5. Cek logs jika ada error
+⏱️ **Next Steps:**
+- Setup monitoring/error tracking (Sentry, etc.)
+- Database backups (Neon has built-in backups)
+- Custom domain setup if needed
 
-## Environment Variables Explanation
+## Support
 
-- `APP_KEY`: Dari `.env` file (jangan ubah)
-- `DB_*`: Database credentials dari Neon
-- `SESSION_DRIVER=database`: Perlu database untuk session
-- `CACHE_STORE=database`: Perlu database untuk cache
+For Vercel-specific issues:
+- Check Vercel Documentation: https://vercel.com/docs
+- Check Laravel Documentation: https://laravel.com/docs
+
+

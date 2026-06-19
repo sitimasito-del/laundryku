@@ -1,9 +1,11 @@
 {
   "version": 2,
+  "buildCommand": "npm run build",
   "functions": {
     "api/index.php": {
       "runtime": "vercel-php@0.7.3",
-      "maxDuration": 30
+      "maxDuration": 30,
+      "memory": 3008
     }
   },
   "routes": [
