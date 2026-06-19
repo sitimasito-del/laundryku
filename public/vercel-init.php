@@ -20,7 +20,11 @@ if (!is_dir($bootstrapCacheDir)) {
 // Ensure subdirectories exist
 $dirs = [
     $storageDir . '/app',
+    $storageDir . '/app/public',
     $storageDir . '/framework',
+    $storageDir . '/framework/cache',
+    $storageDir . '/framework/sessions',
+    $storageDir . '/framework/views',
     $storageDir . '/logs',
     $bootstrapCacheDir,
 ];
@@ -28,7 +32,20 @@ $dirs = [
 foreach ($dirs as $dir) {
     if (!is_dir($dir)) {
         @mkdir($dir, 0755, true);
+        // Set permissions
+        @chmod($dir, 0755);
     }
+}
+
+// Ensure cache files exist if needed
+$cacheFile = $bootstrapCacheDir . '/packages.php';
+if (!file_exists($cacheFile)) {
+    @file_put_contents($cacheFile, '<?php return array(); ?>');
+}
+
+$servicesFile = $bootstrapCacheDir . '/services.php';
+if (!file_exists($servicesFile)) {
+    @file_put_contents($servicesFile, '<?php return array(); ?>');
 }
 
 // Set timezone
