@@ -1,48 +1,64 @@
 <?php
 
-// Reduce initialization overhead for faster cold starts
+// For Vercel debugging - show actual errors
 define('LARAVEL_START', microtime(true));
 
-// Set error reporting for production
-if (getenv('APP_ENV') === 'production') {
-    error_reporting(E_ALL);
-    ini_set('display_errors', '0');
-    ini_set('log_errors', '1');
-}
-
 try {
-    // Initialize filesystem check
+    // Ensure required directories exist
     $baseDir = __DIR__.'/../';
-    $requiredDirs = [
+    $dirs = [
+        'storage',
         'storage/logs',
+        'storage/framework',
         'storage/framework/cache',
         'storage/framework/sessions',
+        'storage/framework/views',
+        'storage/app',
         'bootstrap/cache',
     ];
     
-    foreach ($requiredDirs as $dir) {
+    foreach ($dirs as $dir) {
         $fullPath = $baseDir . $dir;
         if (!is_dir($fullPath)) {
-            @mkdir($fullPath, 0755, true);
+            @mkdir($fullPath, 0777, true);
         }
     }
     
-    require $baseDir . 'public/index.php';
-} catch (Throwable $e) {
-    $logDir = __DIR__.'/../storage/logs';
-    if (!is_dir($logDir)) {
-        @mkdir($logDir, 0755, true);
+    // Check if vendor/autoload.php exists
+    $autoload = $baseDir . 'vendor/autoload.php';
+    if (!file_exists($autoload)) {
+        throw new Exception("vendor/autoload.php not found at: $autoload");
     }
     
-    $errorMessage = sprintf(
-        "[%s] Cold Start Error\n%s\n%s\n---\n",
+    require $baseDir . 'public/index.php';
+    
+} catch (Throwable $e) {
+    http_response_code(500);
+    
+    // Output error for debugging
+    $isDev = (getenv('APP_ENV') !== 'production');
+    
+    if ($isDev) {
+        echo "Error: " . $e->getMessage() . "\n";
+        echo $e->getTraceAsString();
+    } else {
+        echo "Internal Server Error";
+    }
+    
+    // Also log it
+    $logDir = __DIR__.'/../storage/logs';
+    @mkdir($logDir, 0777, true);
+    
+    $msg = sprintf(
+        "[%s] Error: %s\nFile: %s:%d\nTrace:\n%s\n---\n",
         date('Y-m-d H:i:s'),
         $e->getMessage(),
+        $e->getFile(),
+        $e->getLine(),
         $e->getTraceAsString()
     );
     
-    @file_put_contents($logDir . '/vercel-error.log', $errorMessage, FILE_APPEND);
+    @file_put_contents($logDir . '/vercel-error.log', $msg, FILE_APPEND);
     
-    http_response_code(500);
-    echo 'Internal Server Error';
+    exit(1);
 }
