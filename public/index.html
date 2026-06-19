@@ -1,0 +1,388 @@
+<!doctype html>
+<html lang="id">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Laundryku CRUD</title>
+    <style>
+        :root {
+            font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            color: #172026;
+            background: #f4f6f8;
+        }
+
+        * { box-sizing: border-box; }
+        body { margin: 0; min-height: 100vh; background: #f4f6f8; }
+        button, input, select { font: inherit; }
+        button { cursor: pointer; }
+        .shell { display: grid; grid-template-columns: 250px 1fr; min-height: 100vh; }
+        .sidebar { background: #172026; color: #fff; padding: 24px; }
+        .brand { margin: 0 0 26px; font-size: 28px; font-weight: 850; }
+        .nav { display: grid; gap: 8px; }
+        .nav button { text-align: left; border: 0; border-radius: 8px; padding: 12px 14px; color: #cbd5e1; background: transparent; font-weight: 750; }
+        .nav button.active, .nav button:hover { background: #26343e; color: #fff; }
+        .main { padding: 28px; }
+        .topbar { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 20px; }
+        h1 { margin: 0; font-size: 31px; line-height: 1.1; }
+        h2 { margin: 0 0 14px; }
+        .muted { color: #64748b; }
+        .grid { display: grid; gap: 16px; }
+        .stats { grid-template-columns: repeat(4, minmax(0, 1fr)); margin-bottom: 20px; }
+        .card { background: #fff; border: 1px solid #dbe1e8; border-radius: 8px; padding: 18px; }
+        .stat-label { color: #64748b; font-size: 14px; margin-bottom: 8px; }
+        .stat-value { font-size: 28px; font-weight: 850; }
+        .btn { display: inline-flex; align-items: center; justify-content: center; min-height: 40px; padding: 9px 14px; border-radius: 8px; border: 1px solid #cbd5e1; background: #fff; color: #172026; font-weight: 800; }
+        .btn.primary { border-color: #0f766e; background: #0f766e; color: #fff; }
+        .btn.danger { border-color: #b91c1c; background: #b91c1c; color: #fff; }
+        .btn.small { min-height: 34px; padding: 6px 10px; font-size: 14px; }
+        .toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
+        .filters { display: flex; gap: 10px; flex-wrap: wrap; }
+        input, select { width: 100%; min-height: 42px; padding: 9px 11px; border: 1px solid #cbd5e1; border-radius: 8px; background: #fff; color: #172026; }
+        .form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+        label { display: grid; gap: 7px; font-weight: 800; }
+        .form-actions { display: flex; gap: 10px; margin-top: 18px; }
+        .table-wrap { overflow-x: auto; background: #fff; border: 1px solid #dbe1e8; border-radius: 8px; }
+        table { width: 100%; border-collapse: collapse; min-width: 820px; }
+        th, td { padding: 14px 16px; border-bottom: 1px solid #e5eaf0; text-align: left; vertical-align: top; }
+        th { color: #64748b; background: #f8fafc; font-size: 13px; letter-spacing: .04em; text-transform: uppercase; }
+        tr:last-child td { border-bottom: 0; }
+        .actions { display: flex; gap: 8px; flex-wrap: wrap; }
+        .badge { display: inline-flex; border-radius: 999px; padding: 5px 9px; background: #eef2f7; color: #475569; font-size: 13px; font-weight: 850; }
+        .badge.orange { background: #fff7ed; color: #c2410c; }
+        .badge.blue { background: #eff6ff; color: #1d4ed8; }
+        .badge.green { background: #ecfdf5; color: #047857; }
+        .empty { padding: 26px; color: #64748b; }
+        .detail { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+        .detail div { background: #f8fafc; border-radius: 8px; padding: 14px; }
+        .detail span { display: block; color: #64748b; font-size: 13px; margin-bottom: 5px; }
+
+        @media (max-width: 920px) {
+            .shell { grid-template-columns: 1fr; }
+            .stats, .form-grid, .detail { grid-template-columns: 1fr; }
+            .topbar, .toolbar { flex-direction: column; align-items: stretch; }
+        }
+    </style>
+</head>
+<body>
+    <div class="shell">
+        <aside class="sidebar">
+            <h1 class="brand">Laundryku</h1>
+            <nav class="nav">
+                <button id="nav-dashboard" onclick="showView('dashboard')">Dashboard</button>
+                <button id="nav-transaksi" onclick="showView('transaksi')">Transaksi</button>
+                <button id="nav-layanan" onclick="showView('layanan')">Layanan</button>
+            </nav>
+        </aside>
+        <main id="app" class="main"></main>
+    </div>
+
+    <script>
+        const rupiah = new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 });
+        const statuses = ['Masuk', 'Diproses', 'Selesai', 'Diambil'];
+
+        const defaultLayanan = [
+            { id: crypto.randomUUID(), nama_layanan: 'Cuci Kering', harga_perkg: 7000 },
+            { id: crypto.randomUUID(), nama_layanan: 'Cuci Setrika', harga_perkg: 10000 },
+            { id: crypto.randomUUID(), nama_layanan: 'Setrika Saja', harga_perkg: 6000 },
+            { id: crypto.randomUUID(), nama_layanan: 'Express', harga_perkg: 15000 },
+        ];
+
+        const store = {
+            get layanan() {
+                return JSON.parse(localStorage.getItem('laundryku_layanan') || 'null') || defaultLayanan;
+            },
+            set layanan(value) {
+                localStorage.setItem('laundryku_layanan', JSON.stringify(value));
+            },
+            get transaksi() {
+                return JSON.parse(localStorage.getItem('laundryku_transaksi') || '[]');
+            },
+            set transaksi(value) {
+                localStorage.setItem('laundryku_transaksi', JSON.stringify(value));
+            }
+        };
+
+        if (!localStorage.getItem('laundryku_layanan')) {
+            store.layanan = defaultLayanan;
+        }
+
+        let activeView = 'dashboard';
+
+        function setActive(view) {
+            activeView = view;
+            ['dashboard', 'transaksi', 'layanan'].forEach(name => {
+                document.getElementById(`nav-${name}`).classList.toggle('active', name === view);
+            });
+        }
+
+        function showView(view) {
+            setActive(view);
+            if (view === 'dashboard') renderDashboard();
+            if (view === 'transaksi') renderTransaksi();
+            if (view === 'layanan') renderLayanan();
+        }
+
+        function layananById(id) {
+            return store.layanan.find(item => item.id === id);
+        }
+
+        function calcTotal(layananId, berat) {
+            const layanan = layananById(layananId);
+            return Math.round((layanan?.harga_perkg || 0) * Number(berat || 0));
+        }
+
+        function statusClass(status) {
+            return status === 'Diproses' ? 'orange' : status === 'Selesai' ? 'blue' : status === 'Diambil' ? 'green' : '';
+        }
+
+        function renderDashboard() {
+            const transaksi = store.transaksi;
+            const selesai = transaksi.filter(item => ['Selesai', 'Diambil'].includes(item.status));
+            const aktif = transaksi.filter(item => ['Masuk', 'Diproses'].includes(item.status));
+            const pendapatan = selesai.reduce((sum, item) => sum + item.total_harga, 0);
+            const latest = transaksi.slice().sort((a, b) => b.created_at.localeCompare(a.created_at)).slice(0, 8);
+
+            document.getElementById('app').innerHTML = `
+                <div class="topbar">
+                    <div>
+                        <h1>Dashboard</h1>
+                        <p class="muted">Ringkasan operasional laundry.</p>
+                    </div>
+                    <button class="btn primary" onclick="renderTransaksiForm()">+ Transaksi Baru</button>
+                </div>
+                <section class="grid stats">
+                    <div class="card"><div class="stat-label">Total Transaksi</div><div class="stat-value">${transaksi.length}</div></div>
+                    <div class="card"><div class="stat-label">Transaksi Aktif</div><div class="stat-value">${aktif.length}</div></div>
+                    <div class="card"><div class="stat-label">Total Layanan</div><div class="stat-value">${store.layanan.length}</div></div>
+                    <div class="card"><div class="stat-label">Pendapatan Selesai</div><div class="stat-value">${rupiah.format(pendapatan)}</div></div>
+                </section>
+                <section class="grid" style="grid-template-columns: 1fr 2fr;">
+                    <div class="card">
+                        <h2>Status</h2>
+                        ${statuses.map(status => `<div style="display:flex;justify-content:space-between;margin:12px 0;"><span>${status}</span><strong>${transaksi.filter(item => item.status === status).length}</strong></div>`).join('')}
+                    </div>
+                    <div>
+                        <div class="toolbar"><h2>Transaksi Terbaru</h2><button class="btn small" onclick="showView('transaksi')">Lihat Semua</button></div>
+                        ${renderTransaksiTable(latest, false)}
+                    </div>
+                </section>
+            `;
+        }
+
+        function renderLayanan() {
+            document.getElementById('app').innerHTML = `
+                <div class="topbar">
+                    <div>
+                        <h1>Layanan</h1>
+                        <p class="muted">Kelola jenis layanan dan harga per kilogram.</p>
+                    </div>
+                    <button class="btn primary" onclick="renderLayananForm()">+ Tambah Layanan</button>
+                </div>
+                <div class="table-wrap">
+                    <table>
+                        <thead><tr><th>Nama Layanan</th><th>Harga / Kg</th><th>Dipakai Transaksi</th><th>Aksi</th></tr></thead>
+                        <tbody>
+                            ${store.layanan.map(item => `
+                                <tr>
+                                    <td><strong>${item.nama_layanan}</strong></td>
+                                    <td>${rupiah.format(item.harga_perkg)}</td>
+                                    <td>${store.transaksi.filter(tx => tx.layanan_id === item.id).length}</td>
+                                    <td>
+                                        <div class="actions">
+                                            <button class="btn small" onclick="renderLayananForm('${item.id}')">Edit</button>
+                                            <button class="btn danger small" onclick="deleteLayanan('${item.id}')">Hapus</button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            `).join('') || '<tr><td colspan="4">Belum ada layanan.</td></tr>'}
+                        </tbody>
+                    </table>
+                </div>
+            `;
+        }
+
+        function renderLayananForm(id = null) {
+            setActive('layanan');
+            const item = id ? layananById(id) : { nama_layanan: '', harga_perkg: '' };
+            document.getElementById('app').innerHTML = `
+                <div class="topbar"><div><h1>${id ? 'Edit' : 'Tambah'} Layanan</h1><p class="muted">Lengkapi data layanan.</p></div></div>
+                <form class="card" onsubmit="saveLayanan(event, '${id || ''}')">
+                    <div class="form-grid">
+                        <label>Nama Layanan<input name="nama_layanan" required value="${item.nama_layanan}"></label>
+                        <label>Harga per Kg<input name="harga_perkg" type="number" min="0" required value="${item.harga_perkg}"></label>
+                    </div>
+                    <div class="form-actions">
+                        <button class="btn primary" type="submit">Simpan</button>
+                        <button class="btn" type="button" onclick="renderLayanan()">Batal</button>
+                    </div>
+                </form>
+            `;
+        }
+
+        function saveLayanan(event, id) {
+            event.preventDefault();
+            const form = new FormData(event.target);
+            const payload = {
+                id: id || crypto.randomUUID(),
+                nama_layanan: form.get('nama_layanan').trim(),
+                harga_perkg: Number(form.get('harga_perkg')),
+            };
+            store.layanan = id ? store.layanan.map(item => item.id === id ? payload : item) : [payload, ...store.layanan];
+            renderLayanan();
+        }
+
+        function deleteLayanan(id) {
+            if (store.transaksi.some(item => item.layanan_id === id)) {
+                alert('Layanan tidak bisa dihapus karena sudah dipakai transaksi.');
+                return;
+            }
+            if (confirm('Hapus layanan ini?')) {
+                store.layanan = store.layanan.filter(item => item.id !== id);
+                renderLayanan();
+            }
+        }
+
+        function renderTransaksi() {
+            setActive('transaksi');
+            document.getElementById('app').innerHTML = `
+                <div class="topbar">
+                    <div>
+                        <h1>Transaksi</h1>
+                        <p class="muted">Catat dan kelola pesanan laundry.</p>
+                    </div>
+                    <button class="btn primary" onclick="renderTransaksiForm()">+ Transaksi Baru</button>
+                </div>
+                <div class="toolbar">
+                    <div class="filters">
+                        <input id="search" placeholder="Cari nama atau nomor HP" oninput="filterTransaksi()">
+                        <select id="statusFilter" onchange="filterTransaksi()">
+                            <option value="">Semua status</option>
+                            ${statuses.map(status => `<option value="${status}">${status}</option>`).join('')}
+                        </select>
+                    </div>
+                </div>
+                <div id="transaksiTable">${renderTransaksiTable(store.transaksi)}</div>
+            `;
+        }
+
+        function filterTransaksi() {
+            const q = document.getElementById('search').value.toLowerCase();
+            const status = document.getElementById('statusFilter').value;
+            const rows = store.transaksi.filter(item => {
+                const matchText = item.nama_pelanggan.toLowerCase().includes(q) || item.no_hp.toLowerCase().includes(q);
+                const matchStatus = !status || item.status === status;
+                return matchText && matchStatus;
+            });
+            document.getElementById('transaksiTable').innerHTML = renderTransaksiTable(rows);
+        }
+
+        function renderTransaksiTable(rows, withActions = true) {
+            return `
+                <div class="table-wrap">
+                    <table>
+                        <thead><tr><th>Pelanggan</th><th>Layanan</th><th>Berat</th><th>Total</th><th>Status</th><th>Masuk</th>${withActions ? '<th>Aksi</th>' : ''}</tr></thead>
+                        <tbody>
+                            ${rows.map(item => {
+                                const layanan = layananById(item.layanan_id);
+                                return `
+                                    <tr>
+                                        <td><strong>${item.nama_pelanggan}</strong><br><span class="muted">${item.no_hp}</span></td>
+                                        <td>${layanan?.nama_layanan || '-'}</td>
+                                        <td>${Number(item.berat).toFixed(2)} kg</td>
+                                        <td>${rupiah.format(item.total_harga)}</td>
+                                        <td><span class="badge ${statusClass(item.status)}">${item.status}</span></td>
+                                        <td>${new Date(item.tanggal_masuk).toLocaleString('id-ID')}</td>
+                                        ${withActions ? `<td><div class="actions"><button class="btn small" onclick="renderTransaksiDetail('${item.id}')">Detail</button><button class="btn small" onclick="renderTransaksiForm('${item.id}')">Edit</button><button class="btn danger small" onclick="deleteTransaksi('${item.id}')">Hapus</button></div></td>` : ''}
+                                    </tr>
+                                `;
+                            }).join('') || `<tr><td colspan="${withActions ? 7 : 6}">Belum ada transaksi.</td></tr>`}
+                        </tbody>
+                    </table>
+                </div>
+            `;
+        }
+
+        function renderTransaksiForm(id = null) {
+            setActive('transaksi');
+            if (!store.layanan.length) {
+                document.getElementById('app').innerHTML = '<div class="card"><h1>Tambahkan layanan terlebih dahulu</h1><p class="muted">Transaksi membutuhkan data layanan.</p><br><button class="btn primary" onclick="renderLayananForm()">Tambah Layanan</button></div>';
+                return;
+            }
+            const item = id ? store.transaksi.find(tx => tx.id === id) : {
+                nama_pelanggan: '', no_hp: '', layanan_id: store.layanan[0].id, berat: '', status: 'Masuk',
+                tanggal_masuk: new Date().toISOString().slice(0, 16), tanggal_selesai: ''
+            };
+            document.getElementById('app').innerHTML = `
+                <div class="topbar"><div><h1>${id ? 'Edit' : 'Tambah'} Transaksi</h1><p class="muted">Lengkapi pesanan pelanggan.</p></div></div>
+                <form class="card" onsubmit="saveTransaksi(event, '${id || ''}')">
+                    <div class="form-grid">
+                        <label>Nama Pelanggan<input name="nama_pelanggan" required value="${item.nama_pelanggan}"></label>
+                        <label>Nomor HP<input name="no_hp" required value="${item.no_hp}"></label>
+                        <label>Layanan<select name="layanan_id" required>${store.layanan.map(layanan => `<option value="${layanan.id}" ${item.layanan_id === layanan.id ? 'selected' : ''}>${layanan.nama_layanan} - ${rupiah.format(layanan.harga_perkg)}/kg</option>`).join('')}</select></label>
+                        <label>Berat (kg)<input name="berat" type="number" min="0.1" step="0.1" required value="${item.berat}"></label>
+                        <label>Status<select name="status">${statuses.map(status => `<option value="${status}" ${item.status === status ? 'selected' : ''}>${status}</option>`).join('')}</select></label>
+                        <label>Tanggal Masuk<input name="tanggal_masuk" type="datetime-local" required value="${item.tanggal_masuk?.slice(0, 16) || ''}"></label>
+                        <label>Tanggal Selesai<input name="tanggal_selesai" type="datetime-local" value="${item.tanggal_selesai?.slice(0, 16) || ''}"></label>
+                    </div>
+                    <div class="form-actions">
+                        <button class="btn primary" type="submit">Simpan</button>
+                        <button class="btn" type="button" onclick="renderTransaksi()">Batal</button>
+                    </div>
+                </form>
+            `;
+        }
+
+        function saveTransaksi(event, id) {
+            event.preventDefault();
+            const form = new FormData(event.target);
+            const layananId = form.get('layanan_id');
+            const berat = Number(form.get('berat'));
+            const status = form.get('status');
+            const payload = {
+                id: id || crypto.randomUUID(),
+                nama_pelanggan: form.get('nama_pelanggan').trim(),
+                no_hp: form.get('no_hp').trim(),
+                layanan_id: layananId,
+                berat,
+                status,
+                total_harga: calcTotal(layananId, berat),
+                tanggal_masuk: form.get('tanggal_masuk'),
+                tanggal_selesai: ['Selesai', 'Diambil'].includes(status) ? (form.get('tanggal_selesai') || new Date().toISOString().slice(0, 16)) : '',
+                created_at: id ? store.transaksi.find(item => item.id === id).created_at : new Date().toISOString()
+            };
+            store.transaksi = id ? store.transaksi.map(item => item.id === id ? payload : item) : [payload, ...store.transaksi];
+            renderTransaksi();
+        }
+
+        function renderTransaksiDetail(id) {
+            const item = store.transaksi.find(tx => tx.id === id);
+            const layanan = layananById(item.layanan_id);
+            document.getElementById('app').innerHTML = `
+                <div class="topbar">
+                    <div><h1>Detail Transaksi</h1><p class="muted">Informasi pesanan ${item.nama_pelanggan}.</p></div>
+                    <div class="actions"><button class="btn" onclick="renderTransaksi()">Kembali</button><button class="btn primary" onclick="renderTransaksiForm('${item.id}')">Edit</button></div>
+                </div>
+                <div class="card detail">
+                    <div><span>Pelanggan</span><strong>${item.nama_pelanggan}</strong></div>
+                    <div><span>Nomor HP</span><strong>${item.no_hp}</strong></div>
+                    <div><span>Layanan</span><strong>${layanan?.nama_layanan || '-'}</strong></div>
+                    <div><span>Berat</span><strong>${Number(item.berat).toFixed(2)} kg</strong></div>
+                    <div><span>Total Harga</span><strong>${rupiah.format(item.total_harga)}</strong></div>
+                    <div><span>Status</span><strong>${item.status}</strong></div>
+                    <div><span>Tanggal Masuk</span><strong>${new Date(item.tanggal_masuk).toLocaleString('id-ID')}</strong></div>
+                    <div><span>Tanggal Selesai</span><strong>${item.tanggal_selesai ? new Date(item.tanggal_selesai).toLocaleString('id-ID') : '-'}</strong></div>
+                </div>
+            `;
+        }
+
+        function deleteTransaksi(id) {
+            if (confirm('Hapus transaksi ini?')) {
+                store.transaksi = store.transaksi.filter(item => item.id !== id);
+                renderTransaksi();
+            }
+        }
+
+        showView('dashboard');
+    </script>
+</body>
+</html>
