@@ -3,6 +3,11 @@
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\DashboardController;
 
+
+Route::get('/', function () {
+    return 'LARAVEL HIDUP';
+});
+
 Route::get('/', [
     DashboardController::class,
     'index'
