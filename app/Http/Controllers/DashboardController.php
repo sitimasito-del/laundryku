@@ -4,44 +4,32 @@ namespace App\Http\Controllers;
 
 use App\Models\Layanan;
 use App\Models\Transaksi;
-use Illuminate\Http\Request;
 
 class DashboardController extends Controller
 {
     public function index()
     {
-        $layanans = Layanan::all();
-
+        $totalLayanan = Layanan::count();
+        $totalTransaksi = Transaksi::count();
+        $pendapatan = Transaksi::whereIn('status', ['Selesai', 'Diambil'])
+            ->sum('total_harga');
+        $transaksiAktif = Transaksi::whereIn('status', ['Masuk', 'Diproses'])
+            ->count();
+        $statusCounts = Transaksi::selectRaw('status, count(*) as total')
+            ->groupBy('status')
+            ->pluck('total', 'status');
         $transaksis = Transaksi::with('layanan')
             ->latest()
+            ->take(8)
             ->get();
 
-        return view('dashboard', compact(
-            'layanans',
-            'transaksis'
-        ));
-    }
-
-    public function store(Request $request)
-    {
-        $layanan = Layanan::findOrFail(
-            $request->layanan_id
-        );
-
-        $total =
-            $request->berat *
-            $layanan->harga_perkg;
-
-        Transaksi::create([
-            'nama_pelanggan' => $request->nama_pelanggan,
-            'no_hp' => $request->no_hp,
-            'layanan_id' => $request->layanan_id,
-            'berat' => $request->berat,
-            'total_harga' => $total,
-            'status' => 'Masuk',
-            'tanggal_masuk' => now(),
+        return view('dashboard', [
+            'totalLayanan' => $totalLayanan,
+            'totalTransaksi' => $totalTransaksi,
+            'pendapatan' => $pendapatan,
+            'transaksiAktif' => $transaksiAktif,
+            'statusCounts' => $statusCounts,
+            'transaksis' => $transaksis,
         ]);
-
-        return redirect('/');
     }
 }

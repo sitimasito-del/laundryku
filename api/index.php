@@ -14,7 +14,6 @@ try {
         $storagePath.'/framework/sessions',
         $storagePath.'/framework/views',
         $storagePath.'/logs',
-        __DIR__.'/../bootstrap/cache',
     ];
 
     foreach ($dirs as $dir) {

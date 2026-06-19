@@ -1,10 +1,13 @@
 <?php
 
+use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\LayananController;
+use App\Http\Controllers\TransaksiController;
 use Illuminate\Support\Facades\Route;
 
-Route::get('/', function () {
-    return 'LARAVEL BERHASIL';
-});
+Route::get('/', [DashboardController::class, 'index'])->name('dashboard');
+Route::resource('layanans', LayananController::class)->except(['show']);
+Route::resource('transaksis', TransaksiController::class);
 
 // Handle favicon requests (both .ico and .png)
 Route::get('/favicon.{ext}', function ($ext) {
