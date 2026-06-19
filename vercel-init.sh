@@ -3,6 +3,7 @@
 # Create necessary directories for Vercel
 mkdir -p storage/app/public
 mkdir -p storage/framework/cache
+mkdir -p storage/framework/cache/data
 mkdir -p storage/framework/sessions  
 mkdir -p storage/framework/views
 mkdir -p storage/logs

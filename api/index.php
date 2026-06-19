@@ -10,7 +10,9 @@ try {
         __DIR__.'/../storage/app',
         __DIR__.'/../storage/framework',
         __DIR__.'/../storage/framework/cache',
+        __DIR__.'/../storage/framework/cache/data',
         __DIR__.'/../storage/framework/sessions',
+        __DIR__.'/../storage/framework/views',
         __DIR__.'/../storage/logs',
         __DIR__.'/../bootstrap/cache',
     ];
