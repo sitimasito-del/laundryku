@@ -1,64 +1,50 @@
 <?php
 
-// For Vercel debugging - show actual errors
 define('LARAVEL_START', microtime(true));
 
+// Simple and reliable entry point for Vercel
 try {
-    // Ensure required directories exist
-    $baseDir = __DIR__.'/../';
+    // Ensure storage directories exist
     $dirs = [
-        'storage',
-        'storage/logs',
-        'storage/framework',
-        'storage/framework/cache',
-        'storage/framework/sessions',
-        'storage/framework/views',
-        'storage/app',
-        'bootstrap/cache',
+        __DIR__.'/../storage',
+        __DIR__.'/../storage/app',
+        __DIR__.'/../storage/framework',
+        __DIR__.'/../storage/framework/cache',
+        __DIR__.'/../storage/framework/sessions',
+        __DIR__.'/../storage/logs',
+        __DIR__.'/../bootstrap/cache',
     ];
     
     foreach ($dirs as $dir) {
-        $fullPath = $baseDir . $dir;
-        if (!is_dir($fullPath)) {
-            @mkdir($fullPath, 0777, true);
+        if (!is_dir($dir)) {
+            @mkdir($dir, 0777, true);
         }
     }
     
-    // Check if vendor/autoload.php exists
-    $autoload = $baseDir . 'vendor/autoload.php';
-    if (!file_exists($autoload)) {
-        throw new Exception("vendor/autoload.php not found at: $autoload");
-    }
-    
-    require $baseDir . 'public/index.php';
+    // Load Laravel
+    require __DIR__.'/../public/index.php';
     
 } catch (Throwable $e) {
+    // Log error
+    $logFile = __DIR__.'/../storage/logs/vercel-error.log';
+    $dir = dirname($logFile);
+    if (!is_dir($dir)) {
+        @mkdir($dir, 0777, true);
+    }
+    
+    $timestamp = date('Y-m-d H:i:s');
+    $error = "[$timestamp] " . $e->getMessage() . "\n" . $e->getTraceAsString() . "\n---\n";
+    @file_put_contents($logFile, $error, FILE_APPEND);
+    
+    // Output error
     http_response_code(500);
     
-    // Output error for debugging
-    $isDev = (getenv('APP_ENV') !== 'production');
-    
-    if ($isDev) {
-        echo "Error: " . $e->getMessage() . "\n";
+    if (getenv('APP_DEBUG') === 'true') {
+        echo $e->getMessage() . "\n\n";
         echo $e->getTraceAsString();
     } else {
         echo "Internal Server Error";
     }
-    
-    // Also log it
-    $logDir = __DIR__.'/../storage/logs';
-    @mkdir($logDir, 0777, true);
-    
-    $msg = sprintf(
-        "[%s] Error: %s\nFile: %s:%d\nTrace:\n%s\n---\n",
-        date('Y-m-d H:i:s'),
-        $e->getMessage(),
-        $e->getFile(),
-        $e->getLine(),
-        $e->getTraceAsString()
-    );
-    
-    @file_put_contents($logDir . '/vercel-error.log', $msg, FILE_APPEND);
     
     exit(1);
 }
